@@ -8,14 +8,22 @@
 1. **streamlit** - used for UI development 
 2. **PyPDF2** [PdfReader] - used to read the PDF 
 3. **langchain**
+   
 	a. **text_splitter** [RecursiveCharacterTextSplitter] - used for Chunking the data read from PDF
-	b. **google_genai** 
+
+	b. **google_genai**
+
 		i) GoogleGenerativeAIEmbeddings - used for creating the embedding of each chunk
 		ii) ChatGoogleGenerativeAI - chatbot functionality
+
 	c. **vectorstores** [FAISS] - used for storing the embedding in vectordb
+
 	d. **chains.question_answering** [load_qa_chain] - chat history
+
 	e. **prompts** [PromptTemplate] - sets the prompt features
-4. **dotenv** [load_dotenv] - loads the env variables
+
+
+5. **dotenv** [load_dotenv] - loads the env variables
 ---
 ## Steps
 
