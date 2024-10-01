@@ -1,7 +1,6 @@
 import streamlit as st
 from PyPDF2 import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-import os
 import sqlite3
 from datetime import datetime
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
@@ -29,7 +28,7 @@ def init_db():
                      (id INTEGER PRIMARY KEY AUTOINCREMENT,
                       query TEXT NOT NULL,
                       response TEXT NOT NULL,
-                      timestamp TEXT NOT NULL)''')  # Add timestamp column
+                      timestamp TEXT NOT NULL)''')  
     conn.commit()
     conn.close()
 
@@ -97,17 +96,14 @@ def user_input(user_question):
     # Store query and response in the database
     store_chat(user_question, response["output_text"])
 
-def show_current_chat_history():
-    st.write("Current Chat History:")
-    for chat in st.session_state['current_chat_history']:
-        st.write(f"Query: {chat['query']}")
-        st.write(f"Response: {chat['response']}")
-        st.write("---")
 
-# Add it to the sidebar in `main()` function:
-with st.sidebar:
-    if st.button("Show Current Chat History"):
-        show_current_chat_history()
+def show_current_chat_history():
+    st.write("---")
+    for chat in reversed(st.session_state['current_chat_history'][:-1]):
+        st.markdown(f'<p><span style="color:#ADD8E6;">Query:</span> {chat["query"]}</p>', unsafe_allow_html=True)
+        st.markdown(f'<p><span style="color:#ADD8E6;">Response:</span> {chat["response"]}</p>', unsafe_allow_html=True)
+        st.write("---")
+    
 
 def main():
     st.header("Chat with Multiple PDF using Gemini💁")
@@ -117,8 +113,10 @@ def main():
 
     user_question = st.text_input("Ask a Question from the PDF Files")
 
-    if user_question:
-        user_input(user_question)
+    if st.button("Get Answer"):
+        if user_question:
+            user_input(user_question)
+            show_current_chat_history()
 
     with st.sidebar:
         st.title("Menu:")
