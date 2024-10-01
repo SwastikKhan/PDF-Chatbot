@@ -2,7 +2,8 @@ import streamlit as st
 from PyPDF2 import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import os
-
+import sqlite3
+from datetime import datetime
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import google.generativeai as genai
 from langchain.vectorstores import FAISS
@@ -11,32 +12,54 @@ from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
 
+st.set_page_config("Chat with Multiple PDF")
+
 load_dotenv()
 
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+genai.configure(api_key="AIzaSyDK3DT3MtOaGvkaahpgQ7i8WReQJ-UgCn0")
+
+# Initialize chat history in session state if it doesn't exist
+if 'current_chat_history' not in st.session_state:
+    st.session_state['current_chat_history'] = []
+
+def init_db():
+    conn = sqlite3.connect("queries.db")
+    cursor = conn.cursor()
+    cursor.execute('''CREATE TABLE IF NOT EXISTS chat_history
+                     (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      query TEXT NOT NULL,
+                      response TEXT NOT NULL,
+                      timestamp TEXT NOT NULL)''')  # Add timestamp column
+    conn.commit()
+    conn.close()
+
+def store_chat(query, response):
+    conn = sqlite3.connect("queries.db")
+    cursor = conn.cursor()
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute("INSERT INTO chat_history (query, response, timestamp) VALUES (?, ?, ?)", (query, response, timestamp))
+    conn.commit()
+    conn.close()
 
 def get_pdf_text(pdf_docs):
-    text=""
+    text = ""
     for pdf in pdf_docs:
-        pdf_reader=PdfReader(pdf)
+        pdf_reader = PdfReader(pdf)
         for page in pdf_reader.pages:
-            text+=page.extract_text()
+            text += page.extract_text()
     return text
 
 def get_text_chunks(text):
-    text_splitter=RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=1000)
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=1000)
     chunks = text_splitter.split_text(text)
     return chunks
 
-
 def get_vector_store(text_chunks):
-    embeddings = GoogleGenerativeAIEmbeddings(model = "models/embedding-001")
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key="AIzaSyDK3DT3MtOaGvkaahpgQ7i8WReQJ-UgCn0")
     vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
     vector_store.save_local("faiss_index")
 
-
 def get_conversational_chain():
-
     prompt_template = """
     Answer the question as detailed as possible from the provided context, make sure to provide all the details, if the answer is not in
     provided context just say, "answer is not available in the context", don't provide the wrong answer\n\n
@@ -46,34 +69,51 @@ def get_conversational_chain():
     Answer:
     """
 
-    model = ChatGoogleGenerativeAI(model="gemini-1.5-pro", temperature=0.3)
+    model = ChatGoogleGenerativeAI(model="gemini-1.5-pro", temperature=0.3, api_key="AIzaSyDK3DT3MtOaGvkaahpgQ7i8WReQJ-UgCn0")
 
-    prompt = PromptTemplate(template = prompt_template, input_variables = ["context", "question"])
+    prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
     chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
 
     return chain
 
-
 def user_input(user_question):
-    embeddings = GoogleGenerativeAIEmbeddings(model = "models/embedding-001")
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key="AIzaSyDK3DT3MtOaGvkaahpgQ7i8WReQJ-UgCn0")
     
     new_db = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
     docs = new_db.similarity_search(user_question)
 
     chain = get_conversational_chain()
-
     response = chain(
-        {"input_documents":docs, "question": user_question}
-        , return_only_outputs=True)
+        {"input_documents": docs, "question": user_question},
+        return_only_outputs=True
+    )
 
-    print(response)
+    # Store chat history in the session state
+    st.session_state['current_chat_history'].append({"query": user_question, "response": response["output_text"]})
+
+    # Display the reply
     st.write("Reply: ", response["output_text"])
-    
 
+    # Store query and response in the database
+    store_chat(user_question, response["output_text"])
+
+def show_current_chat_history():
+    st.write("Current Chat History:")
+    for chat in st.session_state['current_chat_history']:
+        st.write(f"Query: {chat['query']}")
+        st.write(f"Response: {chat['response']}")
+        st.write("---")
+
+# Add it to the sidebar in `main()` function:
+with st.sidebar:
+    if st.button("Show Current Chat History"):
+        show_current_chat_history()
 
 def main():
-    st.set_page_config("Chat with Multiple PDF")
     st.header("Chat with Multiple PDF using Gemini💁")
+
+    # Initialize the database
+    init_db()
 
     user_question = st.text_input("Ask a Question from the PDF Files")
 
