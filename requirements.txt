@@ -1,6 +1,7 @@
-pip install streamlit
-pip install PyPDF2
-pip install langchain
-pip install faiss-cpu
-pip install langchain-google-genai google-generativeai
-pip install python-dotenv
+streamlit
+PyPDF2
+langchain
+faiss-cpu
+langchain-google-genai
+google-generativeai
+python-dotenv
