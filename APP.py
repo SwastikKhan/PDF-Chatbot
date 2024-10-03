@@ -45,7 +45,18 @@ def get_pdf_text(pdf_docs):
     for pdf in pdf_docs:
         pdf_reader = PdfReader(pdf)
         for page in pdf_reader.pages:
-            text += page.extract_text()
+            page_text = page.extract_text()
+            text += page_text if page_text else ""
+
+            # Check for annotations, including links (hyperlinks)
+            if "/Annots" in page:
+                annotations = page["/Annots"]
+                for annotation in annotations:
+                    annotation_obj = annotation.get_object()
+                    if annotation_obj.get("/Subtype") == "/Link":
+                        link = annotation_obj.get("/A", {}).get("/URI")
+                        if link:
+                            text += f"\nHyperlink: {link}\n"
     return text
 
 def get_text_chunks(text):
@@ -91,7 +102,7 @@ def user_input(user_question):
     st.session_state['current_chat_history'].append({"query": user_question, "response": response["output_text"]})
 
     # Display the reply
-    st.write("Reply: ", response["output_text"])
+    st.markdown('<span style="color: lightblue;">Reply:</span> ' + response["output_text"], unsafe_allow_html=True)
 
     # Store query and response in the database
     store_chat(user_question, response["output_text"])
